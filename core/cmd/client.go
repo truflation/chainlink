@@ -25,6 +25,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -41,7 +43,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
-	"github.com/smartcontractkit/sqlx"
 )
 
 var prometheus *ginprom.Prometheus
