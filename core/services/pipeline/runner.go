@@ -400,8 +400,10 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(spec.MaxTaskDuration))
 		defer cancel()
 	}
-
+	// on the ethcall task is when the panic happens
+	fmt.Println("VARS", taskRun.vars, "INPUTS", taskRun.inputs, "TYPE", taskRun.task.Type(), "ID", taskRun.task.ID())
 	result, runInfo := taskRun.task.Run(ctx, l, taskRun.vars, taskRun.inputs)
+	fmt.Println("taskRun.task.Run -- Done")
 	loggerFields := []interface{}{"runInfo", runInfo,
 		"resultValue", result.Value,
 		"resultError", result.Error,

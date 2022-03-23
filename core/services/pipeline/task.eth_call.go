@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -11,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -81,6 +83,9 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		return Result{Error: errors.Wrapf(ErrBadInput, "data param must not be empty")}, runInfo
 	}
 
+	fake := assets.GWei(0)
+	fmt.Println(fake)
+	// if you are running my added test but set gasPrice to 'fake' everything runs fine.
 	call := ethereum.CallMsg{
 		To:        (*common.Address)(&contractAddr),
 		Data:      []byte(data),
@@ -95,6 +100,11 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		With("gasTipCap", call.GasTipCap).
 		With("gasFeeCap", call.GasFeeCap)
 
+	fmt.Println("gas", call.Gas,
+		"gasPrice", call.GasPrice,
+		"gasTipCap", call.GasTipCap,
+		"gasFeeCap", call.GasFeeCap)
+
 	chain, err := getChainByString(t.chainSet, string(chainID))
 	if err != nil {
 		lggr.Errorf("Invalid chain ID %s", chainID)
@@ -102,6 +112,10 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 	}
 
 	start := time.Now()
+	// So GasPrice being nil seems to be the issue but looking at go-eth simulated.go they do checks for GasPrice nil and GasPrice nil is expected
+	// which means its happening somewhere between chain.Client().CallContract below and simulated.go that I could not pinpoint yet
+	// this also means i don't think https://github.com/smartcontractkit/chainlink/pull/6284/files fixes the panic as you can clearly see it if you run the test I added
+	fmt.Println("this call is where the panic happens")
 	resp, err := chain.Client().CallContract(ctx, call, nil)
 	elapsed := time.Since(start)
 	if err != nil {

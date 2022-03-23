@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"strconv"
 	"sync"
@@ -191,9 +192,9 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 			return
 		}
 		gasPrice, gasTipCap, gasFeeCap = price, fee.TipCap, fee.FeeCap
-
+		fmt.Println(gasPrice, gasTipCap, gasFeeCap)
 		// Make sure the gas price is at least as large as the basefee to avoid ErrFeeCapTooLow error from geth during eth call.
-		// If head.BaseFeePerGas, we assume it is a EIP-1559 chain.
+		// If head.BaseFeePerGas, we assume it is an EIP-1559 chain.
 		// Note: gasPrice will be null if EvmEIP1559DynamicFees is enabled.
 		if gasPrice != nil && head.BaseFeePerGas != nil && head.BaseFeePerGas.ToInt().BitLen() > 0 {
 			baseFee := addBuffer(head.BaseFeePerGas.ToInt(), ex.config.KeeperBaseFeeBufferPercent())
@@ -250,6 +251,7 @@ func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (gasPrice 
 		return nil, fee, errors.Wrap(err, "unable to construct performUpkeep data")
 	}
 
+	fmt.Println(ex.config.EvmEIP1559DynamicFees())
 	if ex.config.EvmEIP1559DynamicFees() {
 		fee, _, err = ex.gasEstimator.GetDynamicFee(upkeep.ExecuteGas)
 		fee.TipCap = addBuffer(fee.TipCap, ex.config.KeeperGasTipCapBufferPercent())
