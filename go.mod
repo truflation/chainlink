@@ -15,7 +15,7 @@ require (
 	github.com/ethereum/go-ethereum v1.10.16
 	github.com/fatih/color v1.13.0
 	github.com/fxamacker/cbor/v2 v2.4.0
-	github.com/gagliardetto/solana-go v1.4.0
+	github.com/gagliardetto/solana-go v1.4.1-0.20220413001530-3e39c80b7211
 	github.com/getsentry/sentry-go v0.12.0
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-contrib/expvar v0.0.0-20181230111036-f23b556cc79f
@@ -54,7 +54,7 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shirou/gopsutil/v3 v3.22.2
 	github.com/shopspring/decimal v1.3.1
-	github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220407141239-2baea958e1af
+	github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220413210744-109e1ebccbfd
 	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220413164119-03e8d221b3fc
 	github.com/smartcontractkit/libocr v0.0.0-20220217180537-449836e6cfec
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
