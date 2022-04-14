@@ -7,8 +7,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
+	registry1_1 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -30,7 +31,9 @@ type MailRoom struct {
 
 type RegistrySynchronizerOptions struct {
 	Job                      job.Job
-	Contract                 *keeper_registry_wrapper1_1.KeeperRegistry
+	Client                   evmclient.Client
+	Version                  RegistryVersion
+	Contract                 *registry1_1.KeeperRegistry
 	ORM                      ORM
 	JRM                      job.ORM
 	LogBroadcaster           log.Broadcaster
@@ -42,7 +45,9 @@ type RegistrySynchronizerOptions struct {
 
 type RegistrySynchronizer struct {
 	chStop                   chan struct{}
-	contract                 *keeper_registry_wrapper1_1.KeeperRegistry
+	client                   evmclient.Client
+	version                  RegistryVersion
+	contract                 *registry1_1.KeeperRegistry
 	interval                 time.Duration
 	job                      job.Job
 	jrm                      job.ORM
@@ -66,6 +71,8 @@ func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchron
 	}
 	return &RegistrySynchronizer{
 		chStop:                   make(chan struct{}),
+		client:                   opts.Client,
+		version:                  opts.Version,
 		contract:                 opts.Contract,
 		interval:                 opts.SyncInterval,
 		job:                      opts.Job,
@@ -89,11 +96,11 @@ func (rs *RegistrySynchronizer) Start(context.Context) error {
 			Contract: rs.contract.Address(),
 			ParseLog: rs.contract.ParseLog,
 			LogsWithTopics: map[common.Hash][][]log.Topic{
-				keeper_registry_wrapper1_1.KeeperRegistryKeepersUpdated{}.Topic():   nil,
-				keeper_registry_wrapper1_1.KeeperRegistryConfigSet{}.Topic():        nil,
-				keeper_registry_wrapper1_1.KeeperRegistryUpkeepCanceled{}.Topic():   nil,
-				keeper_registry_wrapper1_1.KeeperRegistryUpkeepRegistered{}.Topic(): nil,
-				keeper_registry_wrapper1_1.KeeperRegistryUpkeepPerformed{}.Topic():  nil,
+				registry1_1.KeeperRegistryKeepersUpdated{}.Topic():   nil,
+				registry1_1.KeeperRegistryConfigSet{}.Topic():        nil,
+				registry1_1.KeeperRegistryUpkeepCanceled{}.Topic():   nil,
+				registry1_1.KeeperRegistryUpkeepRegistered{}.Topic(): nil,
+				registry1_1.KeeperRegistryUpkeepPerformed{}.Topic():  nil,
 			},
 			MinIncomingConfirmations: rs.minIncomingConfirmations,
 		}

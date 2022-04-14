@@ -1,15 +1,28 @@
 package keeper
 
 import (
+	"fmt"
+
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
+	registry1_1 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+)
+
+type RegistryVersion int32
+
+const (
+	RegistryVersion_Invalid RegistryVersion = iota
+	RegistryVersion_1_0
+	RegistryVersion_1_1
+	RegistryVersion_1_2
 )
 
 // To make sure Delegate struct implements job.Delegate interface
@@ -63,22 +76,26 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		return nil, err
 	}
 
-	contractAddress := spec.KeeperSpec.ContractAddress
-	contract, err := keeper_registry_wrapper1_1.NewKeeperRegistry(
-		contractAddress.Address(),
+	strategy := txmgr.NewQueueingTxStrategy(spec.ExternalJobID, chain.Config().KeeperDefaultTransactionQueueDepth())
+	orm := NewORM(d.db, d.logger, chain.Config(), strategy)
+	svcLogger := d.logger.With(
+		"jobID", spec.ID,
+		"registryAddress", spec.KeeperSpec.ContractAddress.Hex(),
+	)
+
+	contract, err := registry1_1.NewKeeperRegistry(
+		spec.KeeperSpec.ContractAddress.Address(),
 		chain.Client(),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create keeper registry contract wrapper")
 	}
-	strategy := txmgr.NewQueueingTxStrategy(spec.ExternalJobID, chain.Config().KeeperDefaultTransactionQueueDepth())
 
-	orm := NewORM(d.db, d.logger, chain.Config(), strategy)
-
-	svcLogger := d.logger.With(
-		"jobID", spec.ID,
-		"registryAddress", contractAddress.Hex(),
-	)
+	registryVersion, err := getRegistryVersion(spec.KeeperSpec.ContractAddress, chain.Client())
+	fmt.Println("HEEERE", registryVersion, err)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to determine version of keeper registry contract")
+	}
 
 	minIncomingConfirmations := chain.Config().MinIncomingConfirmations()
 	if spec.KeeperSpec.MinIncomingConfirmations != nil {
@@ -87,13 +104,15 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 
 	registrySynchronizer := NewRegistrySynchronizer(RegistrySynchronizerOptions{
 		Job:                      spec,
-		Contract:                 contract,
 		ORM:                      orm,
 		JRM:                      d.jrm,
 		LogBroadcaster:           chain.LogBroadcaster(),
 		SyncInterval:             chain.Config().KeeperRegistrySyncInterval(),
 		MinIncomingConfirmations: minIncomingConfirmations,
 		Logger:                   svcLogger,
+		Client:                   chain.Client(),
+		Contract:                 contract,
+		Version:                  registryVersion,
 		SyncUpkeepQueueSize:      chain.Config().KeeperRegistrySyncUpkeepQueueSize(),
 	})
 	upkeepExecuter := NewUpkeepExecuter(
@@ -111,4 +130,28 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		registrySynchronizer,
 		upkeepExecuter,
 	}, nil
+}
+
+func getRegistryVersion(registryAddress ethkey.EIP55Address, client evmclient.Client) (RegistryVersion, error) {
+	// Use registry 1_1 to get version information
+	contract, err := registry1_1.NewKeeperRegistry(
+		registryAddress.Address(),
+		client,
+	)
+	if err != nil {
+		return RegistryVersion_Invalid, errors.Wrap(err, "unable to create keeper registry contract wrapper")
+	}
+	typeAndVersion, err := contract.TypeAndVersion(nil)
+	if err != nil {
+		fmt.Println(err)
+		return RegistryVersion_Invalid, errors.Wrap(err, "unable to fetch registry version")
+	}
+	switch typeAndVersion {
+	case "KeeperRegistry 1.1.0":
+		return RegistryVersion_1_1, nil
+	case "KeeperRegistry 1.2.0":
+		return RegistryVersion_1_2, nil
+	default:
+		return RegistryVersion_Invalid, errors.Errorf("Registry version %s not supported", typeAndVersion)
+	}
 }
